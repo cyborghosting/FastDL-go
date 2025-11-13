@@ -2,11 +2,11 @@
   "servers": [
     {
       "route": "/files",
-      "base_path": "/srv/hosting-data/gameserver",
-      "directories": {
+      "root": "/srv/hosting-data/gameserver",
+      "bases": {
         "gameinfo_path": "tf"
       },
-      "compress_max_size": 262144
+      "max_compress_size": 262144
     }
   ]
 }

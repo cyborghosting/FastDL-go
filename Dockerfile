@@ -6,7 +6,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd/ ./cmd/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o fastdl ./cmd/fastdl
+COPY config/ ./config/
+COPY internal/ ./internal/
+COPY utils/ ./utils/
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o fastdl ./cmd
 
 
 FROM busybox:stable

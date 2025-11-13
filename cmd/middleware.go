@@ -8,13 +8,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Sanitizer() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func RegisterMiddlewares(r *gin.Engine) {
+	// Logger
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/health"},
+	}))
+
+	// Recovery
+	r.Use(gin.Recovery())
+
+	// Sanitizer
+	r.Use(func(c *gin.Context) {
 		if p, np := c.Request.URL.Path, cleanPath(c.Request.URL.Path); p != np {
 			c.Abort()
 			c.Redirect(http.StatusTemporaryRedirect, np)
 		}
-	}
+	})
 }
 
 func cleanPath(p string) string {

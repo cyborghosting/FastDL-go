@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -13,9 +13,9 @@ type PathMapping map[string]string
 
 type Server struct {
 	Route           string      `json:"route"`
-	BasePath        string      `json:"base_path"`
-	Directories     PathMapping `json:"directories"`
-	CompressMaxSize int64       `json:"compress_max_size" default:"1048576"`
+	RootDir         string      `json:"root"`
+	BaseDirs        PathMapping `json:"bases"`
+	CompressMaxSize int64       `json:"max_compress_size" default:"0"`
 }
 
 type Configuration struct {
@@ -23,15 +23,15 @@ type Configuration struct {
 }
 
 const (
-	FastDLConfigKey     = "FASTDL_CONFIG"
-	FastDLConfigDefault = "configuration.json"
+	fastDLConfigKey     = "FASTDL_CONFIG"
+	fastDLConfigDefault = "configuration.json"
 )
 
 func getConfigPath() string {
-	if path, exists := os.LookupEnv(FastDLConfigKey); exists {
+	if path, exists := os.LookupEnv(fastDLConfigKey); exists {
 		return path
 	}
-	return FastDLConfigDefault
+	return fastDLConfigDefault
 }
 
 func loadConfiguration(filePath string) (*Configuration, error) {
@@ -58,15 +58,15 @@ func displayConfiguration(configPath string, config *Configuration) {
 
 func displayServer(server Server) {
 	log.Printf("  - route: %s", server.Route)
-	log.Printf("    base_path: %s", server.BasePath)
+	log.Printf("    base_path: %s", server.RootDir)
 	log.Println("    directories:")
-	for key, value := range server.Directories {
+	for key, value := range server.BaseDirs {
 		log.Printf("       %s: %s", key, value)
 	}
 	log.Printf("    compress_max_size: %d bytes", server.CompressMaxSize)
 }
 
-func runConfigurationLoader() (*Configuration, error) {
+func RunConfigurationLoader() (*Configuration, error) {
 	configPath := getConfigPath()
 	if _, err := os.Stat(configPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

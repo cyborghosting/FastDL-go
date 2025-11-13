@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/dsnet/compress/bzip2"
@@ -59,12 +58,13 @@ type SubRoute struct {
 }
 
 var subRoutes = []SubRoute{
-	{"/maps", "maps", Suffix(".bsp", ".nav")},
-	{"/materials", "materials", Suffix(".vmt", ".vtf")},
-	{"/models", "models", Suffix(".mdl", ".phy", ".vmt", ".vtf", ".vtx", ".vvd")},
-	{"/scripts/items", "scripts/items", Suffix(".txt")},
-	{"/shaders", "shaders", Suffix(".vcs")},
-	{"/sound", "sound", Suffix(".mp3", ".wav")},
+	{"/maps", "/maps", Suffix(".bsp", ".nav", ".ain")},
+	{"/materials", "/materials", Suffix(".vmt", ".vtf")},
+	{"/models", "/models", Suffix(".mdl", ".phy", ".vmt", ".vtf", ".vtx", ".vvd")},
+	{"/resource/fonts", "/resource/fonts", Suffix(".ttf")},
+	{"/scripts/items", "/scripts/items", Suffix(".txt")},
+	{"/shaders", "/shaders", Suffix(".vcs")},
+	{"/sound", "/sound", Suffix(".mp3", ".wav")},
 }
 
 func AssignRoutes(routerGroup *gin.RouterGroup, fsManager FileSystemManager, compressMaxSize int64) {
@@ -93,7 +93,6 @@ func (fh *FileHandler) HandleHEAD(c *gin.Context) {
 		}
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/octet-stream")
-		c.Header("Content-Length", strconv.FormatInt(stat.Size(), 10))
 		c.Header("Last-Modified", lastModified)
 		c.Header("ETag", etag)
 		return
