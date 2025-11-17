@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 
@@ -33,7 +34,7 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	fileSystems := make([]internal.FileSystemManager, 0, len(config.Servers))
+	fileSystems := make([]internal.FileSystemManager, 0, len(config.GetServers()))
 	defer func() {
 		// Cleanup all file systems
 		for _, fs := range fileSystems {
@@ -41,25 +42,30 @@ func main() {
 		}
 	}()
 
-	for _, server := range config.Servers {
-		if server.RootDir == "" {
-			log.Printf("Skipping server %s: no root directory specified", server.Route)
+	for _, server := range config.GetServers() {
+		if server.GetRootDir() == "" {
+			log.Printf("Skipping server %s: no root directory specified", server.GetRoute())
 			continue
 		}
-		_, ok := server.BaseDirs["gameinfo_path"]
+		_, ok := server.GetBaseDirs()["gameinfo_path"]
 		if !ok {
-			log.Printf("Skipping server %s: no gameinfo_path specified", server.Route)
+			log.Printf("Skipping server %s: no gameinfo_path specified", server.GetRoute())
+			continue
+		}
+		_, err := os.Stat(path.Join(server.GetRootDir(), server.GetBaseDirs()["gameinfo_path"], "gameinfo.txt"))
+		if err != nil {
+			log.Printf("Skipping server %s: gameinfo.txt not found: %v", server.GetRoute(), err)
 			continue
 		}
 
-		fsManager, err := internal.NewFileSystemManager(server.RootDir, server.BaseDirs)
+		fsManager, err := internal.NewFileSystemManager(server.GetRootDir(), server.GetBaseDirs())
 		if err != nil {
-			log.Printf("Skipping server %s: failed to create filesystem manager: %v", server.Route, err)
+			log.Printf("Skipping server %s: failed to create filesystem manager: %v", server.GetRoute(), err)
 			continue
 		}
 		fileSystems = append(fileSystems, fsManager)
 
-		internal.AssignRoutes(r.Group(server.Route), fsManager, server.CompressMaxSize)
+		internal.AssignRoutes(r.Group(server.GetRoute()), fsManager, server.GetCompressMaxSize())
 	}
 
 	// Start server in a goroutine
