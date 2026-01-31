@@ -60,7 +60,7 @@ type SubRoute struct {
 var subRoutes = []SubRoute{
 	{"/maps", "/maps", Suffix(".bsp", ".nav", ".ain")},
 	{"/materials", "/materials", Suffix(".vmt", ".vtf")},
-	{"/models", "/models", Suffix(".mdl", ".phy", ".vmt", ".vtf", ".vtx", ".vvd")},
+	{"/models", "/models", Suffix(".mdl", ".phy", ".vmt", ".vtf", ".vtx", ".vvd", ".ani")},
 	{"/resource/fonts", "/resource/fonts", Suffix(".ttf")},
 	{"/scripts/items", "/scripts/items", Suffix(".txt")},
 	{"/shaders", "/shaders", Suffix(".vcs")},
