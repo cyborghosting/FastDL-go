@@ -26,9 +26,9 @@ func NewSearchPathManager(root string, bases map[string]string, kv *keyvalues.Ke
 	manager := &SearchPathManager{
 		items: make([]searchPathItem, 0, len(children)),
 	}
-	parser := &searchPathParser{
-		rootDir:  root,
-		baseDirs: bases,
+	parser := &SearchPathParser{
+		installation: root,
+		dictionary:   bases,
 	}
 	for _, child := range children {
 		directory, ok := parser.Parse(child)

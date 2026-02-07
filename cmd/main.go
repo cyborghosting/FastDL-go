@@ -12,6 +12,7 @@ import (
 
 	"github.com/cyborghosting/fastdl/config"
 	"github.com/cyborghosting/fastdl/internal"
+	"github.com/cyborghosting/fastdl/utils"
 )
 
 func main() {
@@ -81,17 +82,9 @@ func main() {
 }
 
 func setResourceLimits() {
-	var rLimit syscall.Rlimit
-	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	_, err := utils.TrySetNoFile(4096)
 	if err != nil {
-		log.Printf("Failed to get ulimit: %v", err)
-		return
-	}
-	rLimit.Cur = max(rLimit.Cur, 4096)
-	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
-	if err != nil {
-		log.Printf("Failed to set ulimit: %v", err)
-		return
+		log.Printf("Failed to set nofile limit: %v", err)
 	}
 }
 

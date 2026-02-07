@@ -2,7 +2,7 @@
   "servers": [
     {
       "route": "/files",
-      "root": "/srv/hosting-data/gameserver",
+      "root": "/srv/hosting-data/foolish/teamfortress2/development/1",
       "bases": {
         "gameinfo_path": "tf"
       },

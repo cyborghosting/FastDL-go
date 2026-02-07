@@ -3,8 +3,10 @@ package internal
 import (
 	"bytes"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -127,7 +129,14 @@ func (fh *FileHandler) HandleGET(c *gin.Context) {
 
 	fs := fh.fsManager.GetFileSystem()
 
-	if f, err := fs.Open(filepath); err == nil {
+	f, err := fs.Open(filepath)
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			log.Printf("Permission Denied: %s", filepath)
+			c.Status(http.StatusForbidden)
+			return
+		}
+	} else {
 		defer f.Close()
 		stat, err := f.Stat()
 		if err != nil || !stat.Mode().IsRegular() {
