@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/cyborghosting/fastdl/config"
 	"github.com/cyborghosting/fastdl/internal/chain"
 )
 
@@ -20,9 +21,6 @@ type FileSystemManager interface {
 }
 
 type fileSystemManager struct {
-	installation string
-	dictionary   map[string]string
-
 	chainState  *chain.State
 	chainHandle func(*chain.State)
 
@@ -33,18 +31,18 @@ type fileSystemManager struct {
 	wg     sync.WaitGroup
 }
 
-func NewFileSystemManager(installation string, dictionary map[string]string) (FileSystemManager, error) {
+func NewFileSystemManager(server config.Server) (FileSystemManager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	f := &fileSystemManager{
-		installation: installation,
-		dictionary:   dictionary,
-
 		ctx:    ctx,
 		cancel: cancel,
 	}
 
+	cacheFileSystem := &chain.CacheFileSystem{}
+
 	buildFileSystem := &chain.BuildFileSystem{}
+	buildFileSystem.SetNext(cacheFileSystem)
 
 	collectSearchPath := &chain.CollectSearchPath{}
 	collectSearchPath.SetNext(buildFileSystem)
@@ -59,8 +57,10 @@ func NewFileSystemManager(installation string, dictionary map[string]string) (Fi
 	parseGameInfo.SetNext(parseSearchPath)
 
 	state := &chain.State{
-		InstallationPath: installation,
-		Dictionary:       dictionary,
+		InstallationPath: server.GetInstallationPath(),
+		Dictionary:       server.GetDictionary(),
+		CachePath:        server.GetCachePath(),
+		CompressMaxSize:  server.GetCompressMaxSize(),
 	}
 
 	f.chainState = state
@@ -84,7 +84,11 @@ func (f *fileSystemManager) Close() {
 func (f *fileSystemManager) updateFileSystem() {
 	f.chainHandle(f.chainState)
 
-	fs := f.chainState.BuildFileSystem.FileSystem
+	if !f.chainState.CacheFileSystem.Updated {
+		return
+	}
+
+	fs := f.chainState.CacheFileSystem.FileSystem
 	f.fileSystem.Store(&fs)
 }
 
@@ -92,9 +96,8 @@ func (f *fileSystemManager) startMonitoring() {
 	f.wg.Add(1)
 	go func() {
 		defer f.wg.Done()
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-
 		for {
 			select {
 			case <-f.ctx.Done():

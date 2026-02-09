@@ -45,9 +45,9 @@ func displayConfiguration(path string, c Configuration) {
 
 func displayServer(s Server) {
 	log.Printf("  - route: %s", s.GetRoute())
-	log.Printf("    base_path: %s", s.GetRootDir())
-	log.Printf("    directories:")
-	for k, v := range s.GetBaseDirs() {
+	log.Printf("    installation_path: %s", s.GetInstallationPath())
+	log.Printf("    dictionary:")
+	for k, v := range s.GetDictionary() {
 		log.Printf("       %s: %s", k, v)
 	}
 	log.Printf("    compress_max_size: %d bytes", s.GetCompressMaxSize())
