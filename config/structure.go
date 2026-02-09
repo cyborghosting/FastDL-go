@@ -43,7 +43,7 @@ type server struct {
 	Route            string            `json:"route"`
 	InstallationPath string            `json:"installation_path"`
 	Dictionary       map[string]string `json:"dictionary"`
-	CompressMaxSize  int64             `json:"compress_max_size" default:"0"`
+	CompressMaxSize  int64             `json:"compress_max_size" default:"2097152"`
 	CachePath        string            `json:"cache_path" default:""`
 }
 

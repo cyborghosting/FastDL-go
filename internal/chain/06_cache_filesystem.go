@@ -48,7 +48,7 @@ func (c *CacheFileSystem) Handle(state *State) {
 
 	unionFs := afero.NewCopyOnWriteFs(state.BuildFileSystem.FileSystem, cacheFs)
 
-	state.CacheFileSystem.FileSystem = newCacheFs(unionFs, cacheFs, &state.CacheFileSystem.cacheState)
+	state.CacheFileSystem.FileSystem = newCacheFs(unionFs, cacheFs, &state.CacheFileSystem.cacheState, state.CompressMaxSize)
 }
 
 func (c *CacheFileSystem) SetNext(next Handler) {
@@ -56,13 +56,14 @@ func (c *CacheFileSystem) SetNext(next Handler) {
 }
 
 type cacheFs struct {
-	source     afero.Fs
-	target     afero.Fs
-	cacheState *CacheState
+	source          afero.Fs
+	target          afero.Fs
+	cacheState      *CacheState
+	compressMaxSize int64
 }
 
-func newCacheFs(source afero.Fs, target afero.Fs, cacheState *CacheState) afero.Fs {
-	return &cacheFs{source: source, target: target, cacheState: cacheState}
+func newCacheFs(source afero.Fs, target afero.Fs, cacheState *CacheState, compressMaxSize int64) afero.Fs {
+	return &cacheFs{source: source, target: target, cacheState: cacheState, compressMaxSize: compressMaxSize}
 }
 
 func (c *cacheFs) Create(name string) (afero.File, error) {
@@ -85,7 +86,10 @@ func (c *cacheFs) Open(name string) (afero.File, error) {
 	if !strings.HasSuffix(name, ".bz2") {
 		return nil, err
 	}
-	if _, err := c.source.Stat(name[:len(name)-4]); err == nil {
+	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
+		if s.Size() > c.compressMaxSize {
+			return nil, err
+		}
 		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
 	}
 	return c.source.Open(name)
@@ -102,7 +106,10 @@ func (c *cacheFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File,
 	if !strings.HasSuffix(name, ".bz2") {
 		return nil, err
 	}
-	if _, err := c.source.Stat(name[:len(name)-4]); err == nil {
+	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
+		if s.Size() > c.compressMaxSize {
+			return nil, err
+		}
 		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
 	}
 	return c.source.OpenFile(name, flag, perm)
@@ -128,7 +135,10 @@ func (c *cacheFs) Stat(name string) (os.FileInfo, error) {
 	if !strings.HasSuffix(name, ".bz2") {
 		return nil, err
 	}
-	if _, err := c.source.Stat(name[:len(name)-4]); err == nil {
+	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
+		if s.Size() > c.compressMaxSize {
+			return nil, err
+		}
 		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
 	}
 	return c.source.Stat(name)
