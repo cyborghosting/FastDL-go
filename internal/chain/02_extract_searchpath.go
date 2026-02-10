@@ -15,33 +15,32 @@ type SearchPath struct {
 	Location string
 }
 
-type ParseSearchPathState struct {
-	Updated bool
-
+type SearchPathState struct {
+	Updated     bool
 	SearchPaths []*SearchPath
 }
 
-type ParseSearchPath struct {
+type ExtractSearchPath struct {
 	next Handler
 }
 
-func (s *ParseSearchPath) Handle(state *State) {
+func (s *ExtractSearchPath) Handle(state *State) {
 	if s.next != nil {
 		defer s.next.Handle(state)
 	}
 
-	state.ParseSearchPath.Updated = false
+	state.SearchPath.Updated = false
 
-	if !state.ParseGameInfo.Updated && state.ParseSearchPath.SearchPaths != nil {
+	if !state.GameInfo.Updated && state.SearchPath.SearchPaths != nil {
 		return
 	}
 
-	if state.ParseGameInfo.KV == nil {
+	if state.GameInfo.KV == nil {
 		s.clear(state)
 		return
 	}
 
-	kv, err := utils.TraverseKeyValue(state.ParseGameInfo.KV, "FileSystem", "SearchPaths")
+	kv, err := utils.TraverseKeyValue(state.GameInfo.KV, "FileSystem", "SearchPaths")
 	if err != nil {
 		s.clear(state)
 		return
@@ -68,17 +67,17 @@ func (s *ParseSearchPath) Handle(state *State) {
 		searchPaths = append(searchPaths, sp)
 	}
 
-	state.ParseSearchPath.Updated = true
-	state.ParseSearchPath.SearchPaths = searchPaths
+	state.SearchPath.Updated = true
+	state.SearchPath.SearchPaths = searchPaths
 }
 
-func (s *ParseSearchPath) SetNext(next Handler) {
+func (s *ExtractSearchPath) SetNext(next Handler) {
 	s.next = next
 }
 
-func (s *ParseSearchPath) clear(state *State) {
-	state.ParseSearchPath.Updated = true
-	state.ParseSearchPath.SearchPaths = nil
+func (s *ExtractSearchPath) clear(state *State) {
+	state.SearchPath.Updated = true
+	state.SearchPath.SearchPaths = nil
 }
 
 type searchPathParser struct {

@@ -5,9 +5,8 @@ import (
 	"strings"
 )
 
-type FilterSearchPathState struct {
-	Updated bool
-
+type FilteredSearchPathState struct {
+	Updated   bool
 	Locations []string
 }
 
@@ -20,19 +19,19 @@ func (f *FilterSearchPath) Handle(state *State) {
 		defer f.next.Handle(state)
 	}
 
-	state.FilterSearchPath.Updated = false
+	state.FilteredSearchPath.Updated = false
 
-	if !state.ParseSearchPath.Updated && state.FilterSearchPath.Locations != nil {
+	if !state.SearchPath.Updated && state.FilteredSearchPath.Locations != nil {
 		return
 	}
 
-	if state.ParseSearchPath.SearchPaths == nil {
+	if state.SearchPath.SearchPaths == nil {
 		f.clear(state)
 		return
 	}
 
-	locations := make([]string, 0, len(state.ParseSearchPath.SearchPaths))
-	for _, sp := range state.ParseSearchPath.SearchPaths {
+	locations := make([]string, 0, len(state.SearchPath.SearchPaths))
+	for _, sp := range state.SearchPath.SearchPaths {
 		if slices.Contains(sp.IDs, "vpk") || !slices.Contains(sp.IDs, "mod") {
 			continue
 		}
@@ -44,8 +43,8 @@ func (f *FilterSearchPath) Handle(state *State) {
 		locations = append(locations, sp.Location)
 	}
 
-	state.FilterSearchPath.Updated = true
-	state.FilterSearchPath.Locations = locations
+	state.FilteredSearchPath.Updated = true
+	state.FilteredSearchPath.Locations = locations
 }
 
 func (f *FilterSearchPath) SetNext(next Handler) {
@@ -53,6 +52,6 @@ func (f *FilterSearchPath) SetNext(next Handler) {
 }
 
 func (f *FilterSearchPath) clear(state *State) {
-	state.FilterSearchPath.Updated = true
-	state.FilterSearchPath.Locations = nil
+	state.FilteredSearchPath.Updated = true
+	state.FilteredSearchPath.Locations = nil
 }

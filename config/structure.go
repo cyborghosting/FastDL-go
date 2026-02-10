@@ -43,8 +43,8 @@ type server struct {
 	Route            string            `json:"route"`
 	InstallationPath string            `json:"installation_path"`
 	Dictionary       map[string]string `json:"dictionary"`
-	CompressMaxSize  int64             `json:"compress_max_size" default:"2097152"`
-	CachePath        string            `json:"cache_path" default:""`
+	CompressMaxSize  int64             `json:"compress_max_size"`
+	CachePath        string            `json:"cache_path"`
 }
 
 func (s *server) GetRoute() string {
@@ -60,7 +60,7 @@ func (s *server) GetDictionary() map[string]string {
 }
 
 func (s *server) GetCompressMaxSize() int64 {
-	return s.CompressMaxSize
+	return int64(s.CompressMaxSize)
 }
 
 func (s *server) GetCachePath() string {

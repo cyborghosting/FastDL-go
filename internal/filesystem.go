@@ -39,22 +39,22 @@ func NewFileSystemManager(server config.Server) (FileSystemManager, error) {
 		cancel: cancel,
 	}
 
-	cacheFileSystem := &chain.CacheFileSystem{}
+	buildCacheFs := &chain.BuildCacheFs{}
 
-	buildFileSystem := &chain.BuildFileSystem{}
-	buildFileSystem.SetNext(cacheFileSystem)
+	buildOverlayFs := &chain.BuildOverlayFs{}
+	buildOverlayFs.SetNext(buildCacheFs)
 
-	collectSearchPath := &chain.CollectSearchPath{}
-	collectSearchPath.SetNext(buildFileSystem)
+	resolveSearchPath := &chain.ResolveSearchPath{}
+	resolveSearchPath.SetNext(buildOverlayFs)
 
 	filterSearchPath := &chain.FilterSearchPath{}
-	filterSearchPath.SetNext(collectSearchPath)
+	filterSearchPath.SetNext(resolveSearchPath)
 
-	parseSearchPath := &chain.ParseSearchPath{}
-	parseSearchPath.SetNext(filterSearchPath)
+	extractSearchPath := &chain.ExtractSearchPath{}
+	extractSearchPath.SetNext(filterSearchPath)
 
 	parseGameInfo := &chain.ParseGameInfo{}
-	parseGameInfo.SetNext(parseSearchPath)
+	parseGameInfo.SetNext(extractSearchPath)
 
 	state := &chain.State{
 		InstallationPath: server.GetInstallationPath(),
@@ -84,11 +84,11 @@ func (f *fileSystemManager) Close() {
 func (f *fileSystemManager) updateFileSystem() {
 	f.chainHandle(f.chainState)
 
-	if !f.chainState.CacheFileSystem.Updated {
+	if !f.chainState.CacheFs.Updated {
 		return
 	}
 
-	fs := f.chainState.CacheFileSystem.FileSystem
+	fs := f.chainState.CacheFs.Fs
 	f.fileSystem.Store(&fs)
 }
 

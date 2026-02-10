@@ -8,11 +8,11 @@ import (
 	keyvalues "github.com/galaco/KeyValues"
 )
 
-type ParseGameInfoState struct {
+type GameInfoState struct {
 	Updated bool
+	KV      *keyvalues.KeyValue
 
-	ModificationTime time.Time
-	KV               *keyvalues.KeyValue
+	modTime time.Time
 }
 
 type ParseGameInfo struct {
@@ -24,7 +24,7 @@ func (g *ParseGameInfo) Handle(state *State) {
 		defer g.next.Handle(state)
 	}
 
-	state.ParseGameInfo.Updated = false
+	state.GameInfo.Updated = false
 
 	_, ok := state.Dictionary["gameinfo_path"]
 	if !ok {
@@ -46,8 +46,7 @@ func (g *ParseGameInfo) Handle(state *State) {
 		return
 	}
 
-	t := s.ModTime()
-	if !t.After(state.ParseGameInfo.ModificationTime) {
+	if !s.ModTime().After(state.GameInfo.modTime) {
 		return
 	}
 
@@ -58,9 +57,9 @@ func (g *ParseGameInfo) Handle(state *State) {
 		return
 	}
 
-	state.ParseGameInfo.Updated = true
-	state.ParseGameInfo.ModificationTime = t
-	state.ParseGameInfo.KV = &kv
+	state.GameInfo.Updated = true
+	state.GameInfo.modTime = s.ModTime()
+	state.GameInfo.KV = &kv
 }
 
 func (g *ParseGameInfo) SetNext(next Handler) {
@@ -68,7 +67,7 @@ func (g *ParseGameInfo) SetNext(next Handler) {
 }
 
 func (g *ParseGameInfo) clear(state *State) {
-	state.ParseGameInfo.Updated = true
-	state.ParseGameInfo.ModificationTime = time.Time{}
-	state.ParseGameInfo.KV = nil
+	state.GameInfo.Updated = true
+	state.GameInfo.modTime = time.Time{}
+	state.GameInfo.KV = nil
 }

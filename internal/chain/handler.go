@@ -6,12 +6,12 @@ type State struct {
 	CachePath        string
 	CompressMaxSize  int64
 
-	ParseGameInfo     ParseGameInfoState
-	ParseSearchPath   ParseSearchPathState
-	FilterSearchPath  FilterSearchPathState
-	CollectSearchPath CollectSearchPathState
-	BuildFileSystem   BuildFileSystemState
-	CacheFileSystem   CacheFileSystemState
+	GameInfo           GameInfoState
+	SearchPath         SearchPathState
+	FilteredSearchPath FilteredSearchPathState
+	ResolvedSearchPath ResolvedSearchPathState
+	OverlayFs          OverlayFsState
+	CacheFs            CacheFsState
 }
 
 type Handler interface {

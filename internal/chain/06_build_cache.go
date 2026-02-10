@@ -14,56 +14,73 @@ import (
 	"github.com/spf13/afero"
 )
 
-type CacheFileSystemState struct {
+type CacheFsState struct {
 	Updated bool
+	Fs      afero.Fs
 
 	cacheState CacheState
-
-	FileSystem afero.Fs
 }
 
-type CacheFileSystem struct {
+type BuildCacheFs struct {
 	next Handler
 }
 
-func (c *CacheFileSystem) Handle(state *State) {
+func (c *BuildCacheFs) Handle(state *State) {
 	if c.next != nil {
 		defer c.next.Handle(state)
 	}
 
-	state.CacheFileSystem.Updated = false
+	state.CacheFs.Updated = false
 
-	if !state.BuildFileSystem.Updated && state.CacheFileSystem.FileSystem != nil {
+	if !state.OverlayFs.Updated && state.CacheFs.Fs != nil {
 		return
 	}
 
-	state.CacheFileSystem.Updated = true
+	state.CacheFs.Updated = true
 
 	if state.CachePath == "" {
-		state.CacheFileSystem.FileSystem = state.BuildFileSystem.FileSystem
+		state.CacheFs.Fs = state.OverlayFs.Fs
 		return
 	}
 
-	cacheFs := afero.NewBasePathFs(afero.NewOsFs(), state.CachePath)
+	baseFs := state.OverlayFs.Fs
+	layerFs := afero.NewBasePathFs(afero.NewOsFs(), state.CachePath)
+	unionFs := afero.NewCopyOnWriteFs(baseFs, layerFs)
 
-	unionFs := afero.NewCopyOnWriteFs(state.BuildFileSystem.FileSystem, cacheFs)
+	cacheFs := newCacheFs(unionFs, layerFs, &state.CacheFs.cacheState, state.CompressMaxSize)
 
-	state.CacheFileSystem.FileSystem = newCacheFs(unionFs, cacheFs, &state.CacheFileSystem.cacheState, state.CompressMaxSize)
+	state.CacheFs.Fs = cacheFs
 }
 
-func (c *CacheFileSystem) SetNext(next Handler) {
+func (c *BuildCacheFs) SetNext(next Handler) {
 	c.next = next
 }
 
 type cacheFs struct {
-	source          afero.Fs
-	target          afero.Fs
+	union           afero.Fs
+	layer           afero.Fs
 	cacheState      *CacheState
 	compressMaxSize int64
 }
 
-func newCacheFs(source afero.Fs, target afero.Fs, cacheState *CacheState, compressMaxSize int64) afero.Fs {
-	return &cacheFs{source: source, target: target, cacheState: cacheState, compressMaxSize: compressMaxSize}
+func newCacheFs(union afero.Fs, layer afero.Fs, cacheState *CacheState, compressMaxSize int64) afero.Fs {
+	return &cacheFs{union: union, layer: layer, cacheState: cacheState, compressMaxSize: compressMaxSize}
+}
+
+func (c *cacheFs) tryBuildCache(name string) bool {
+	if !strings.HasSuffix(name, ".bz2") {
+		return false
+	}
+
+	base := strings.TrimSuffix(name, ".bz2")
+	if s, err := c.union.Stat(base); err == nil {
+		if s.Size() > c.compressMaxSize {
+			return false
+		}
+		_ = c.cacheState.TryCompress(c.union, c.layer, base)
+	}
+
+	return true
 }
 
 func (c *cacheFs) Create(name string) (afero.File, error) {
@@ -79,40 +96,28 @@ func (c *cacheFs) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (c *cacheFs) Open(name string) (afero.File, error) {
-	f, err := c.source.Open(name)
+	f, err := c.union.Open(name)
 	if err == nil {
 		return f, nil
 	}
-	if !strings.HasSuffix(name, ".bz2") {
+	if !c.tryBuildCache(name) {
 		return nil, err
 	}
-	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
-		if s.Size() > c.compressMaxSize {
-			return nil, err
-		}
-		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
-	}
-	return c.source.Open(name)
+	return c.union.Open(name)
 }
 
 func (c *cacheFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	if flag&(os.O_WRONLY|syscall.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC) != 0 {
 		return nil, syscall.EPERM
 	}
-	f, err := c.source.OpenFile(name, flag, perm)
+	f, err := c.union.OpenFile(name, flag, perm)
 	if err == nil {
 		return f, nil
 	}
-	if !strings.HasSuffix(name, ".bz2") {
+	if !c.tryBuildCache(name) {
 		return nil, err
 	}
-	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
-		if s.Size() > c.compressMaxSize {
-			return nil, err
-		}
-		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
-	}
-	return c.source.OpenFile(name, flag, perm)
+	return c.union.OpenFile(name, flag, perm)
 }
 
 func (c *cacheFs) Remove(name string) error {
@@ -128,20 +133,14 @@ func (c *cacheFs) Rename(o, n string) error {
 }
 
 func (c *cacheFs) Stat(name string) (os.FileInfo, error) {
-	s, err := c.source.Stat(name)
+	s, err := c.union.Stat(name)
 	if err == nil {
 		return s, nil
 	}
-	if !strings.HasSuffix(name, ".bz2") {
+	if !c.tryBuildCache(name) {
 		return nil, err
 	}
-	if s, serr := c.source.Stat(name[:len(name)-4]); serr == nil {
-		if s.Size() > c.compressMaxSize {
-			return nil, err
-		}
-		c.cacheState.TryCompress(c.source, c.target, name[:len(name)-4])
-	}
-	return c.source.Stat(name)
+	return c.union.Stat(name)
 }
 
 func (c *cacheFs) Name() string {
@@ -168,49 +167,44 @@ type compressState struct {
 	waiters int
 }
 
+func newCompressState() *compressState {
+	state := &compressState{}
+	state.cond = sync.NewCond(&state.mu)
+	return state
+}
+
 type CacheState struct {
 	registry sync.Map
 }
 
 func (c *CacheState) TryCompress(source afero.Fs, target afero.Fs, key string) error {
-	// Initialize a new compressState
-	state := &compressState{}
-	state.cond = sync.NewCond(&state.mu)
-
-	// Try to load or store the state
-	value, loaded := c.registry.LoadOrStore(key, state)
-	state = value.(*compressState)
+	value, loaded := c.registry.LoadOrStore(key, newCompressState())
+	state := value.(*compressState)
 
 	state.mu.Lock()
 	state.waiters++
-	// If it was loaded, let it wait
-	if loaded {
-		for !state.done {
-			state.cond.Wait()
-		}
-		err := state.err
+	defer func() {
 		state.waiters--
 		if state.waiters == 0 {
 			c.registry.Delete(key)
 		}
 		state.mu.Unlock()
-		return err
+	}()
+
+	if loaded {
+		for !state.done {
+			state.cond.Wait()
+		}
+		return state.err
 	}
 
-	// Not loaded, so this goroutine is responsible for compressing
 	state.mu.Unlock()
-
 	err := compressFunction(source, target, key)
-
 	state.mu.Lock()
+
 	state.done = true
 	state.err = err
 	state.cond.Broadcast()
-	state.waiters--
-	if state.waiters == 0 {
-		c.registry.Delete(key)
-	}
-	state.mu.Unlock()
 	return err
 }
 
@@ -236,7 +230,6 @@ func compressFunction(source afero.Fs, target afero.Fs, key string) (err error) 
 	if err != nil {
 		return
 	}
-
 	name := wf.Name()
 
 	err = compressStream(rf, wf)
@@ -245,7 +238,6 @@ func compressFunction(source afero.Fs, target afero.Fs, key string) (err error) 
 		target.Remove(name)
 		return
 	}
-
 	wf.Close()
 
 	err = target.Rename(name, key+".bz2")

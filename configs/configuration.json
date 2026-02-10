@@ -5,9 +5,7 @@
       "installation_path": "/srv/hosting-data/foolish/teamfortress2/development/1",
       "dictionary": {
         "gameinfo_path": "tf"
-      },
-      "max_compress_size": 104857600,
-      "cache_path": "./cache"
+      }
     }
   ]
 }
