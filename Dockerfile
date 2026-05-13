@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.26 AS builder
 
 WORKDIR /app
 
@@ -9,6 +9,7 @@ COPY cmd/ ./cmd/
 COPY config/ ./config/
 COPY internal/ ./internal/
 COPY utils/ ./utils/
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o fastdl ./cmd
 
 
